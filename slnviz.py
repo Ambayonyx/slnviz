@@ -41,6 +41,11 @@ themes = {
         'project.has_missing_projects.fillcolor': '#c2c230',
         'project.has_missing_projects.linecolor': '#000000',
         'project.has_missing_projects.fontcolor': '#000000',
+
+        'project.has_invalid_format.style': 'filled',
+        'project.has_invalid_format.fillcolor': '#ffff00',
+        'project.has_invalid_format.linecolor': '#ff0000',
+        'project.has_invalid_format.fontcolor': '#ff0000',
     },
     'light': {
         'bgcolor': '#ffffff',
@@ -62,6 +67,11 @@ themes = {
         'project.has_missing_projects.fillcolor': '#c2c230',
         'project.has_missing_projects.linecolor': '#222222',
         'project.has_missing_projects.fontcolor': '#222222',
+
+        'project.has_invalid_format.style': 'filled',
+        'project.has_invalid_format.fillcolor': '#ffff00',
+        'project.has_invalid_format.linecolor': '#ff0000',
+        'project.has_invalid_format.fontcolor': '#ff0000',
     }
 }
 
@@ -136,6 +146,7 @@ class Project(object):
         self.has_missing_projects = False
         self.is_missing_project = False
         self.highlight = False
+        self.has_invalid_format = False
 
     def filter_id(self, id):
         return id.replace("-", "")
@@ -303,7 +314,12 @@ def analyze_projects_in_solution(lines):
 
     # pull in dependencies declared in project-files
     for project in projects:
-        project.apply_declared_project_dependencies()
+        try:
+            project.apply_declared_project_dependencies()
+        except xml.etree.ElementTree.ParseError as pe:
+            # Some project files are not-well formed.
+            log_error("{0}, {1}".format(pe, project.filename))
+            project.has_invalid_format = True
 
     # all projects & dependencies should now be known. lets analyze them
     for project in projects:
@@ -369,25 +385,32 @@ def render_dot_file(projects, highlight_all=False):
 
         styling = ""
         if project.highlight:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"#000000\"".format(
+            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
                 style_attributes['project.highlight.fillcolor'],
                 style_attributes['project.highlight.style'],
                 style_attributes['project.highlight.linecolor'],
                 style_attributes['project.highlight.fontcolor']
             )
         elif project.is_missing_project:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"#000000\"".format(
+            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
                 style_attributes['project.is_missing_project.fillcolor'],
                 style_attributes['project.is_missing_project.style'],
                 style_attributes['project.is_missing_project.linecolor'],
                 style_attributes['project.is_missing_project.fontcolor']
             )
         elif project.has_missing_projects:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"#000000\"".format(
+            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
                 style_attributes['project.has_missing_projects.fillcolor'],
                 style_attributes['project.has_missing_projects.style'],
                 style_attributes['project.has_missing_projects.linecolor'],
                 style_attributes['project.has_missing_projects.fontcolor']
+            )
+        elif project.has_invalid_format:
+            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
+                style_attributes['project.has_invalid_format.fillcolor'],
+                style_attributes['project.has_invalid_format.style'],
+                style_attributes['project.has_invalid_format.linecolor'],
+                style_attributes['project.has_invalid_format.fontcolor']
             )
 
         lines.append("    {0} [ label=\"{1}\" {2} ]".format(id, project.name, styling))
@@ -407,6 +430,8 @@ def render_dot_file(projects, highlight_all=False):
                   styling = " [color=\"{0}\"]".format(style_attributes['project.highlight.fillcolor'])
               elif proj2.is_missing_project or (project.has_missing_projects and proj2.has_missing_projects):
                   styling = " [color=\"{0}\"]".format(style_attributes['project.is_missing_project.fillcolor'])
+              elif proj2.has_invalid_format:
+                  styling = " [color=\"{0}\"]".format(style_attributes['project.has_invalid_format.linecolor'])
               lines.append("    {0} -> {1}{2}".format(proj1_id, proj2_id, styling))
 
     lines.append("")
@@ -419,11 +444,7 @@ def process(sln_file, dot_file, exclude, highlight, highlight_all, keep_deps):
     log_info("Parsing: {0}".format(sln_file))
     set_working_basedir(sln_file)
     lines = get_lines_from_file(sln_file)
-    try:
-        projects = analyze_projects_in_solution(lines)
-    except xml.etree.ElementTree.ParseError as pe:
-        log_error(pe)
-        return
+    projects = analyze_projects_in_solution(lines)
 
     if not keep_deps:
         debug("Removing redundant dependencies...")
