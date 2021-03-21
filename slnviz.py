@@ -5,7 +5,7 @@
 # a tool to convert a Visual Studio sln-file into a
 # graphviz dot-file, for easy dependency analysis
 #
-
+import xml
 from argparse import ArgumentParser
 import re
 import os
@@ -419,7 +419,11 @@ def process(sln_file, dot_file, exclude, highlight, highlight_all, keep_deps):
     log_info("Parsing: {0}".format(sln_file))
     set_working_basedir(sln_file)
     lines = get_lines_from_file(sln_file)
-    projects = analyze_projects_in_solution(lines)
+    try:
+        projects = analyze_projects_in_solution(lines)
+    except xml.etree.ElementTree.ParseError as pe:
+        log_error(pe)
+        return
 
     if not keep_deps:
         debug("Removing redundant dependencies...")
