@@ -60,9 +60,11 @@ Supported themes are:
 * dark (default)
 * light
 
+These themes are defined in the file `themes.ini` in the script folder. You can define your own themes by creating a themes.ini in the folder where you call the application.
+
 ### style attributes
 
-With the parameter ` --style attribute value` the dot rendering can be modified. These attributes override the definitions in the theme, so you can combine the usage of `--theme` and `--style` to tweak existing themes to your preference.
+With the parameter ` --style attribute value` the dot rendering can be modified even per style attribute. These attributes override the definitions in the theme, so you can combine the usage of `--theme` and `--style` to tweak existing themes to your preference.
 
 ### diagram style attrbutes
 The following global attributes are supported

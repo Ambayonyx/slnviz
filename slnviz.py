@@ -9,8 +9,9 @@ import xml
 from argparse import ArgumentParser
 import re
 import os
-import xml.etree.ElementTree as ET
 import enum
+import configparser
+import xml.etree.ElementTree as ET
 
 debug_output = False
 solution_path = "."
@@ -19,65 +20,8 @@ project_reference_declaration = re.compile("{(.*)}")
 project_declaration = re.compile("\s*Project\(\"{.*}\"\) = \"(.*)\", \"(.*)\", \"{(.*)}\"")
 project_dependency_declaration = re.compile("\s*{(.*)} = {(.*)}")
 
-# Available themes to select
-themes = {
-    'dark': {
-        'bgcolor': '#222222',
-        'project.linecolor': '#ffffff',
-        'project.fontcolor': '#ffffff',
-        'dependency.color': '#ffffff',
-
-        'project.highlight.style': 'filled',
-        'project.highlight.fillcolor': '#30c2c2',
-        'project.highlight.linecolor': '#000000',
-        'project.highlight.fontcolor': '#000000',
-
-        'project.is_missing_project.style': 'filled',
-        'project.is_missing_project.fillcolor': '#f22430',
-        'project.is_missing_project.linecolor': '#000000',
-        'project.is_missing_project.fontcolor': '#000000',
-
-        'project.has_missing_projects.style': 'filled',
-        'project.has_missing_projects.fillcolor': '#c2c230',
-        'project.has_missing_projects.linecolor': '#000000',
-        'project.has_missing_projects.fontcolor': '#000000',
-
-        'project.has_invalid_format.style': 'filled',
-        'project.has_invalid_format.fillcolor': '#ffff00',
-        'project.has_invalid_format.linecolor': '#ff0000',
-        'project.has_invalid_format.fontcolor': '#ff0000',
-    },
-    'light': {
-        'bgcolor': '#ffffff',
-        'project.linecolor': '#222222',
-        'project.fontcolor': '#222222',
-        'dependency.color': '#222222',
-
-        'project.highlight.style': 'filled',
-        'project.highlight.fillcolor': '#30c2c2',
-        'project.highlight.linecolor': '#222222',
-        'project.highlight.fontcolor': '#222222',
-
-        'project.is_missing_project.style': 'filled',
-        'project.is_missing_project.fillcolor': '#f22430',
-        'project.is_missing_project.linecolor': '#222222',
-        'project.is_missing_project.fontcolor': '#222222',
-
-        'project.has_missing_projects.style': 'filled',
-        'project.has_missing_projects.fillcolor': '#c2c230',
-        'project.has_missing_projects.linecolor': '#222222',
-        'project.has_missing_projects.fontcolor': '#222222',
-
-        'project.has_invalid_format.style': 'filled',
-        'project.has_invalid_format.fillcolor': '#ffff00',
-        'project.has_invalid_format.linecolor': '#ff0000',
-        'project.has_invalid_format.fontcolor': '#ff0000',
-    }
-}
-
-# Apply default theme to the style attributes
-style_attributes = themes['dark']
-
+themes_file_name = 'themes.ini'
+style_attributes = {}
 messages = []
 
 
@@ -470,21 +414,44 @@ def process(sln_file, dot_file, exclude, highlight, highlight_all, keep_deps):
 
 def set_style(theme, attributes):
     global style_attributes
+    global themes_file_name
 
-    if not theme:
-        theme = 'dark'
+    # determine which theme to use, this will be the which will be found
+    # 1. current folder
+    # 2. folder of the script
+    script_folder = os.path.dirname(__file__)
+    if os.path.isfile(themes_file_name):
+        themes_file_path = themes_file_name
+    elif os.path.isfile(os.path.join(script_folder, themes_file_name)):
+        themes_file_path = os.path.join(script_folder, themes_file_name)
+    else:
+        log_error("Themes configuration missing: {0}".format(themes_file_name))
+        return False
+
+    if themes_file_path:
+        theme_config = configparser.ConfigParser()
+        theme_config.read(themes_file_path)
+
+    if not theme or theme == 'dark':
+        theme = 'DEFAULT'
+
+    if not theme in theme_config.sections():
+        log_error("Themes configuration '{0}' missing theme '{1}'".format(themes_file_path, theme))
+        return False
 
     debug("Using {0} theme".format(theme))
-    style_attributes = themes[theme]
+    style_attributes = theme_config[theme]
 
     if attributes:
         for attr in attributes:
             name, value = attr
             if name not in style_attributes:
                 log_error("Unknown style attribute defined: {0}".format(name))
+                return False
             else:
                 debug("Overriding style {0}".format(name))
                 style_attributes[name] = value
+    return True
 
 
 def write_logs(logfile: str, must_append: bool):
@@ -509,6 +476,7 @@ def main():
     p.add_argument("--theme", "-t", help="select one of the defined themes")
     p.add_argument("--style", "-s", action="append", nargs=2, metavar=("attribute", "value"),
                    help="Provide style information for dot rendering")
+
     p.add_argument("--log", "-l", help="Log events to file")
     p.add_argument("--logappend", "-la", action="store_true", help="Append logs to file")
 
@@ -516,8 +484,8 @@ def main():
 
     debug_output = args.verbose
 
-    set_style(args.theme, args.style)
-    process(args.input, args.output, args.exclude, args.highlight, args.highlight_all, args.keep_declared_deps)
+    if set_style(args.theme, args.style):
+        process(args.input, args.output, args.exclude, args.highlight, args.highlight_all, args.keep_declared_deps)
     write_logs(args.log, args.logappend)
 
 
