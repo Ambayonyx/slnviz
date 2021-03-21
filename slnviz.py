@@ -329,33 +329,13 @@ def render_dot_file(projects, highlight_all=False):
 
         styling = ""
         if project.highlight:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
-                style_attributes['project.highlight.fillcolor'],
-                style_attributes['project.highlight.style'],
-                style_attributes['project.highlight.linecolor'],
-                style_attributes['project.highlight.fontcolor']
-            )
+            styling = create_node_style("project.highlight")
         elif project.is_missing_project:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
-                style_attributes['project.is_missing_project.fillcolor'],
-                style_attributes['project.is_missing_project.style'],
-                style_attributes['project.is_missing_project.linecolor'],
-                style_attributes['project.is_missing_project.fontcolor']
-            )
+            styling = create_node_style("project.is_missing_project")
         elif project.has_missing_projects:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
-                style_attributes['project.has_missing_projects.fillcolor'],
-                style_attributes['project.has_missing_projects.style'],
-                style_attributes['project.has_missing_projects.linecolor'],
-                style_attributes['project.has_missing_projects.fontcolor']
-            )
+            styling = create_node_style("project.has_missing_projects")
         elif project.has_invalid_format:
-            styling = " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
-                style_attributes['project.has_invalid_format.fillcolor'],
-                style_attributes['project.has_invalid_format.style'],
-                style_attributes['project.has_invalid_format.linecolor'],
-                style_attributes['project.has_invalid_format.fontcolor']
-            )
+            styling = create_node_style("project.has_invalid_format")
 
         lines.append("    {0} [ label=\"{1}\" {2} ]".format(id, project.name, styling))
 
@@ -382,6 +362,15 @@ def render_dot_file(projects, highlight_all=False):
     lines.append("}")
 
     return "\n".join(lines)
+
+
+def create_node_style(style_class):
+    return " fillcolor=\"{0}\" style={1} color=\"{2}\" fontcolor=\"{3}\"".format(
+        style_attributes['{0}.fillcolor'.format(style_class)],
+        style_attributes['{0}.style'.format(style_class)],
+        style_attributes['{0}.linecolor'.format(style_class)],
+        style_attributes['{0}.fontcolor'.format(style_class)]
+    )
 
 
 def process(sln_file, dot_file, exclude, highlight, highlight_all, keep_deps):
